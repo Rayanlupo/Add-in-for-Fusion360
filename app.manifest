@@ -1,0 +1,12 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"addin",
+	"id":	"62a9e55a-dbe4-408d-ad8b-cb802473725e",
+	"author":	"Brian Ekins",
+	"description":	{
+		"":	"This is a test add-in."
+	},
+	"version":	"V1",
+	"runOnStartup":	true,
+	"supportedOS":	"windows|mac"
+}
