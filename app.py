@@ -213,3 +213,18 @@ def update_status_bar(status=None, debounced=False, msg=None):
                     LAST_FETCH_TODAY_CODING_TIME += 1
                     set_timeout(lambda: update_status_bar(status, debounced=True, FETCH_TODAY_DEBOUNCE_SECONDS))
                     return
+            else:
+                msg = "Wakatime: {status}".format(status=status)  
+        if msg:
+            ui.messageBox(msg)
+    except RuntimeError:
+        set_timeout(lambda: update_status_bar(status=status, debounced=debounced, msg=msg), 0)
+
+class UpdateCLI(threading.Thread):
+
+    def run(self):
+        if CLiLatest:
+            return
+        log(INFO, "Downloading latest wakatime CLI")
+
+        if os.path.isdir(os.path.join(RESOURCES_FOLDER, "wakatime-cli")):
