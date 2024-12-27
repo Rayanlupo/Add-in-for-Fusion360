@@ -14,6 +14,8 @@ from io import BytesIO
 import json
 import os 
 import requests
+import configparser
+import shutil
 try:
     from ConfigParser import SafeConfigParser as ConfigParser
     from ConfigParser import Error as ConfigParserError
@@ -228,3 +230,113 @@ class UpdateCLI(threading.Thread):
         log(INFO, "Downloading latest wakatime CLI")
 
         if os.path.isdir(os.path.join(RESOURCES_FOLDER, "wakatime-cli")):
+            shutil.rmtree(os.path.join(RESOURCES_FOLDER, "wakatime-cli"))
+        if not os.path.exists(RESOURCES_FOLDER):
+            os.makedirs(RESOURCES_FOLDER)
+        try:
+            url = GetCliDownloadURL()
+            ui.messageBox(f"Downloading wakatime-cli from {ur}")
+            zip_file = os.path.join(RESOURCES_FOLDER, "wakatime-cli.zip")
+            download(url, zip_file)
+
+
+            if CliInstalled():
+                try: 
+                    os.remove(getCliLocation())
+            ui.messageBox("Extracting wakatime-cli...")
+            with ZipFile(zip_file) as zf:
+                zf.extractAll(RESOURCES_FOLDER)
+            if not is_win:
+                os.chmod(getCliLocation(), 509)
+            try:
+                os.remove(os.path.join(RESOURCES_FOLDER, "wakatime-cli.zip"))
+            except:
+                log(DEBUG, traceback.format_exc())     
+        except:
+            log(DEBUG, traceback.format_exc())
+        createSymLink()
+        ui.messageBox("Finished excracting wakatime-cli")
+def getCliLocation:
+    global WAKATIME_CLI_LOCATION
+
+    if not WAKATIME_CLI_LOCATION:
+        binary = 'wakatime-cli-{osname}-{arch}{ext}'.format(
+            osname=platform.system().lower(),
+            arch=architecture(),
+            ext='.exe' if is_win else '',
+        )
+        WAKATIME_CLI_LOCATION = os.path.join(RESOURCES_FOLDER, binary)
+
+    return WAKATIME_CLI_LOCATION
+
+def architecture():
+    arch = platform.machine() or platform.processor()
+     if arch == 'armv7l':
+        return 'arm'
+    if arch == 'aarch64':
+        return 'arm64'
+    if 'arm' in arch:
+        return 'arm64' if sys.maxsize > 2**32 else 'arm'
+    return 'amd64' if sys.maxsize > 2**32 else '386'
+
+def isCliInstalled():
+    return os.path.exists(getCliLocation())
+
+def isCliLatest():
+ 
+    if not isCliLatest:
+        return false
+     args = [getCliLocation(), '--version']
+    try:
+        stdout, stderr = Popen(args, stdout=PIPE, stderr=PIPE).communicate()
+    except:
+        return False
+    stdout = (stdout or b'') + (stderr or b'')
+    localVer = extractVersion(stdout.decode('utf-8'))
+    if not localVer:
+        log(DEBUG, 'Local wakatime-cli version not found.')
+        return False
+
+    log(INFO, 'Current wakatime-cli version is %s' % localVer)
+    log(INFO, 'Checking for updates to wakatime-cli...')
+
+    remoteVer = getLatestCliVersion()
+
+    if not remoteVer:
+        return True
+
+    if remoteVer == localVer:
+        log(INFO, 'wakatime-cli is up to date.')
+        return True
+
+    log(INFO, 'Found an updated wakatime-cli %s' % remoteVer)
+    return False
+def getLatestCliVersion():
+    global LATEST_CLI_VERSION
+
+    if LATEST_CLI_version:
+        return LATEST_CLI_VERSION
+    configs = None
+    last_version = None
+    last_modified = None
+
+    try: 
+        configs = parseConfigFile( INTERNAL_CONFIG_FILE)
+        if configs:
+            last_modified, last_version = lasstModifiedVersion(configs)
+
+    except:
+        log(DEBUG, traceback.format_exc())
+    try:
+        headers, contents, code = request(GITHUB_RELEASES_STABLE_URL, last_modified = last_modified)
+        if code == 304:
+            LATEST_CLI_VERSION = last_version
+            return last_version
+        data = json.loads(contents.decode('utf-8'))
+        ver = data['tag_name']  
+        if configs:
+            last_modified = headers.get('last-modified')
+            if not configs.has_section('internal'):
+                configs.add_section('internal')
+            configs.set('internal', 'cli_version', ver)
+            config.set('internal', 'cli_version_last_modified', last_modified)
